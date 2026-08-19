@@ -12,6 +12,10 @@ export default defineConfig({
             enabled: true,
             runs: 200,
           },
+          // MockHttpPrecompile decodes the same wide 13-field precompile calldata
+          // RitualPredict._readOracle encodes; the legacy codegen can't fit that many
+          // ABI-decoded locals (several dynamic-typed) on the stack at once.
+          viaIR: true,
         },
       },
       production: {
@@ -21,6 +25,7 @@ export default defineConfig({
             enabled: true,
             runs: 200,
           },
+          viaIR: true,
         },
       },
     },
