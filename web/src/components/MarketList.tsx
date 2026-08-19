@@ -38,9 +38,9 @@ export function MarketList() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {(markets as readonly Market[]).map((market) => (
-        <MarketCard key={market.id.toString()} market={market} />
+    <div className="flex flex-col gap-6">
+      {(markets as readonly Market[]).map((market, index) => (
+        <MarketCard key={market.id.toString()} market={market} index={index} />
       ))}
     </div>
   );

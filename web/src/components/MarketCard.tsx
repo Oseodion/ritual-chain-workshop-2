@@ -17,7 +17,7 @@ import { PREDICT_ADDRESS } from "@/src/lib/wagmi";
 import { Button } from "./Button";
 import { StatusBadge } from "./StatusBadge";
 
-export function MarketCard({ market }: { market: Market }) {
+export function MarketCard({ market, index }: { market: Market; index: number }) {
   const { address, isConnected, chainId } = useAccount();
   const onRightChain = chainId === localHardhat.id;
   const { data: currentBlock } = useBlockNumber({ watch: true });
@@ -33,14 +33,24 @@ export function MarketCard({ market }: { market: Market }) {
   const pool = market.totalYes + market.totalNo;
   const yesPct = pool === 0n ? 50 : Number((market.totalYes * 100n) / pool);
 
+  const showActions =
+    market.state === MarketState.Open ||
+    ((market.state === MarketState.Resolved || market.state === MarketState.Invalid) &&
+      isConnected &&
+      !!stakes);
+
   return (
-    <div className="rounded-2xl border border-border bg-surface p-5">
+    <div className="rounded-2xl border border-border p-6">
       <div className="flex items-start justify-between gap-4">
-        <h3 className="text-base font-medium leading-snug">{market.question}</h3>
+        <span className="text-xs uppercase tracking-widest text-fg-faint">
+          {String(index + 1).padStart(2, "0")}
+        </span>
         <StatusBadge state={market.state} />
       </div>
 
-      <p className="mt-1 font-mono text-xs text-fg-faint">
+      <h3 className="mt-3 font-serif text-xl leading-snug">{market.question}</h3>
+
+      <p className="mt-2 font-mono text-xs text-fg-faint">
         Resolves YES if observed {comparatorSymbol(market.comparator)}{" "}
         {market.target.toString()}
       </p>
@@ -48,6 +58,8 @@ export function MarketCard({ market }: { market: Market }) {
       <PoolBar yesPct={yesPct} pool={pool} />
 
       <StatusLine market={market} currentBlock={currentBlock} />
+
+      {showActions && <div className="mt-5 border-t border-border pt-5" />}
 
       {market.state === MarketState.Open && (
         <BetForm market={market} onRightChain={onRightChain} isConnected={isConnected} />
@@ -71,8 +83,10 @@ function PoolBar({ yesPct, pool }: { yesPct: number; pool: bigint }) {
   const empty = pool === 0n;
   return (
     <div className="mt-4">
-      <div className="h-2 w-full overflow-hidden rounded-full bg-surface-2">
-        {!empty && <div className="h-full bg-fg" style={{ width: `${yesPct}%` }} />}
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-border">
+        {!empty && (
+          <div className="h-full rounded-full bg-accent" style={{ width: `${yesPct}%` }} />
+        )}
       </div>
       <div className="mt-1.5 flex justify-between font-mono text-xs text-fg-dim">
         <span>{empty ? "YES" : `YES ${yesPct}%`}</span>
@@ -124,10 +138,10 @@ function BetForm({
   const { isLoading: isConfirming } = useWaitForTransactionReceipt({ hash });
 
   if (!isConnected) {
-    return <p className="mt-4 text-sm text-fg-dim">Connect a wallet to bet.</p>;
+    return <p className="text-sm text-fg-dim">Connect a wallet to bet.</p>;
   }
   if (!onRightChain) {
-    return <p className="mt-4 text-sm text-fg-dim">Switch to Hardhat Local to bet.</p>;
+    return <p className="text-sm text-fg-dim">Switch to Hardhat Local to bet.</p>;
   }
 
   function bet(isYes: boolean) {
@@ -144,14 +158,14 @@ function BetForm({
   const busy = isPending || isConfirming;
 
   return (
-    <div className="mt-4 flex items-center gap-2">
+    <div className="flex items-center gap-2">
       <input
         type="number"
         min="0"
         step="0.01"
         value={amount}
         onChange={(e) => setAmount(e.target.value)}
-        className="w-24 rounded-full border border-border-strong bg-transparent px-3 py-2 text-sm font-mono outline-none focus-visible:border-fg"
+        className="w-24 rounded-full border border-border-strong bg-transparent px-3 py-2 text-sm font-mono text-fg outline-none focus-visible:border-fg"
         aria-label="Bet amount in ETH"
       />
       <Button variant="primary" disabled={busy} onClick={() => bet(true)}>
@@ -186,14 +200,14 @@ function ClaimSection({
 
   if (alreadySettled) {
     return (
-      <p className="mt-4 text-sm text-fg-dim">
+      <p className="text-sm text-fg-dim">
         {market.state === MarketState.Invalid ? "Refunded." : "Claimed."}
       </p>
     );
   }
   if (claimable === 0n) return null;
   if (!onRightChain) {
-    return <p className="mt-4 text-sm text-fg-dim">Switch to Hardhat Local to claim.</p>;
+    return <p className="text-sm text-fg-dim">Switch to Hardhat Local to claim.</p>;
   }
 
   function claim() {
@@ -207,7 +221,7 @@ function ClaimSection({
   }
 
   return (
-    <div className="mt-4 flex items-center gap-3">
+    <div className="flex items-center gap-3">
       <Button variant="primary" disabled={isPending || isConfirming} onClick={claim}>
         {market.state === MarketState.Invalid ? "Claim refund" : "Claim winnings"}
       </Button>

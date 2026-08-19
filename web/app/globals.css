@@ -1,24 +1,62 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #000000;
-  --color-surface: #0c0c0c;
-  --color-surface-2: #161616;
-  --color-border: rgba(255, 255, 255, 0.1);
-  --color-border-strong: rgba(255, 255, 255, 0.22);
-  --color-fg: #ffffff;
-  --color-fg-dim: rgba(255, 255, 255, 0.6);
-  --color-fg-faint: rgba(255, 255, 255, 0.35);
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --color-bg: #eeeae3;
+  --color-surface: #eeeae3;
+  --color-border: rgba(26, 25, 21, 0.12);
+  --color-border-strong: rgba(26, 25, 21, 0.28);
+  --color-fg: #201f1a;
+  --color-fg-dim: rgba(32, 31, 26, 0.62);
+  --color-fg-faint: rgba(32, 31, 26, 0.4);
+
+  --color-accent: #1f4a37;
+  --color-accent-fg: #f6f4ee;
+
+  --color-dark-bg: #1a1916;
+  --color-dark-fg: #f0ede5;
+  --color-dark-fg-dim: rgba(240, 237, 229, 0.6);
+  --color-dark-border: rgba(240, 237, 229, 0.14);
+
+  --font-serif: var(--font-fraunces), "Iowan Old Style", Georgia, serif;
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
-  background: var(--color-bg);
+  background-color: var(--color-bg);
   color: var(--color-fg);
   font-family:
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  position: relative;
+}
+
+/* Faint technical grid, fading toward the edges. Purely decorative texture
+   behind the content, not meant to be consciously noticed. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(32, 31, 26, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(32, 31, 26, 0.05) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(
+    ellipse 65% 55% at 50% 0%,
+    black 25%,
+    transparent 85%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 65% 55% at 50% 0%,
+    black 25%,
+    transparent 85%
+  );
+}
+
+#app-root {
+  position: relative;
+  z-index: 1;
 }
