@@ -66,9 +66,11 @@ await publicClient.waitForTransactionReceipt({ hash: fundHash });
 console.log(`Funded execution balance with ${EXECUTION_FUNDING} wei-scaled RITUAL`);
 
 console.log("");
-console.log("── Create demo market ────────────────────────────────────");
+console.log("── Create demo markets ───────────────────────────────────");
 
-const marketHash = await predict.write.createMarket([
+// A spread of questions and windows so the list has some variety and markets
+// don't all close/resolve at the exact same block.
+const LOCAL_MARKETS = [
   {
     question: DEMO_MARKET.question,
     oracleUrl: DEMO_MARKET.oracleUrl,
@@ -78,11 +80,43 @@ const marketHash = await predict.write.createMarket([
     bettingSeconds: 90n,
     resolveDelaySeconds: 30n,
   },
-]);
-await publicClient.waitForTransactionReceipt({ hash: marketHash });
-const market = await predict.read.getMarket([1n]);
-console.log(`Created market #1: ${DEMO_MARKET.question}`);
-console.log(`Betting closes at block ${market.closeBlock}, resolves at block ${market.resolveBlock}`);
+  {
+    question: "Will BTC/USD be at least $100,000 when this market resolves?",
+    oracleUrl: "http://localhost:3000/api/oracle/btc",
+    jsonPath: ".price",
+    target: 100_000n,
+    comparator: COMPARATOR.gte,
+    bettingSeconds: 120n,
+    resolveDelaySeconds: 30n,
+  },
+  {
+    question: "Will ETH gas stay under 50 gwei when this market resolves?",
+    oracleUrl: "http://localhost:3000/api/oracle/gas",
+    jsonPath: ".gwei",
+    target: 50n,
+    comparator: COMPARATOR.lt,
+    bettingSeconds: 60n,
+    resolveDelaySeconds: 30n,
+  },
+  {
+    question: "Will Ritual Chain process over 1,000,000 transactions by resolution?",
+    oracleUrl: "http://localhost:3000/api/oracle/txcount",
+    jsonPath: ".count",
+    target: 1_000_000n,
+    comparator: COMPARATOR.gt,
+    bettingSeconds: 150n,
+    resolveDelaySeconds: 30n,
+  },
+] as const;
+
+for (const [i, preset] of LOCAL_MARKETS.entries()) {
+  const hash = await predict.write.createMarket([preset]);
+  await publicClient.waitForTransactionReceipt({ hash });
+  const id = BigInt(i + 1);
+  const market = await predict.read.getMarket([id]);
+  console.log(`#${id} ${preset.question}`);
+  console.log(`  closes at block ${market.closeBlock}, resolves at block ${market.resolveBlock}`);
+}
 
 const envPath = resolve(here, "../../web/.env.local");
 await mkdir(dirname(envPath), { recursive: true });
