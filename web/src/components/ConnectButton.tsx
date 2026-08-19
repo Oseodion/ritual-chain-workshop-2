@@ -1,17 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi";
+import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { localHardhat } from "@/src/lib/chain";
 import { shortenAddress } from "@/src/lib/format";
 import { Button } from "./Button";
 
+type InjectedProvider = {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+};
+
+function getInjectedProvider(): InjectedProvider | undefined {
+  return (window as unknown as { ethereum?: InjectedProvider }).ethereum;
+}
+
 export function ConnectButton() {
-  const { address, isConnected, chainId, connector } = useAccount();
+  const { address, isConnected, chainId } = useAccount();
   const { connect, connectors, isPending } = useConnect();
   const { disconnect } = useDisconnect();
-  const { switchChainAsync, isPending: isSwitching } = useSwitchChain();
   const [connectFailed, setConnectFailed] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
   const [switchError, setSwitchError] = useState<string | null>(null);
 
   if (!isConnected) {
@@ -38,34 +46,33 @@ export function ConnectButton() {
   if (chainId !== localHardhat.id) {
     async function handleSwitch() {
       setSwitchError(null);
+      const ethereum = getInjectedProvider();
+      if (!ethereum) {
+        setSwitchError("No wallet found.");
+        return;
+      }
+
+      setIsSwitching(true);
       try {
-        await switchChainAsync({ chainId: localHardhat.id });
+        // wallet_addEthereumChain adds the chain if the wallet doesn't know it
+        // yet, or just switches to it if it does — either way MetaMask prompts
+        // directly, unlike wallet_switchEthereumChain, which rejects silently
+        // for an unrecognized chain with no popup at all.
+        await ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [
+            {
+              chainId: "0x7a69",
+              chainName: "Hardhat Local",
+              rpcUrls: ["http://127.0.0.1:8545"],
+              nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+            },
+          ],
+        });
       } catch {
-        // Most wallets reject wallet_switchEthereumChain outright for a chain
-        // they don't know yet, with no prompt at all. Add it explicitly, then
-        // switch to it.
-        try {
-          const provider = await connector?.getProvider();
-          if (!provider || typeof provider !== "object" || !("request" in provider)) {
-            throw new Error("no provider");
-          }
-          await (
-            provider as { request: (args: unknown) => Promise<unknown> }
-          ).request({
-            method: "wallet_addEthereumChain",
-            params: [
-              {
-                chainId: `0x${localHardhat.id.toString(16)}`,
-                chainName: localHardhat.name,
-                nativeCurrency: localHardhat.nativeCurrency,
-                rpcUrls: localHardhat.rpcUrls.default.http,
-              },
-            ],
-          });
-          await switchChainAsync({ chainId: localHardhat.id });
-        } catch {
-          setSwitchError("Could not switch. Add Hardhat Local in your wallet manually.");
-        }
+        setSwitchError("Could not switch. Add Hardhat Local in your wallet manually.");
+      } finally {
+        setIsSwitching(false);
       }
     }
 
