@@ -285,7 +285,52 @@ contract RitualPredict {
         uint256 executionIndex,
         uint256 marketId
     ) external {
-        // we'll fill this up
+        if (msg.sender != RitualChain.SCHEDULER) revert OnlyScheduler();
+
+        Market storage m = _market(marketId);
+        // Idempotent: a leftover scheduled execution after the market already settled.
+        if (m.state == MarketState.Resolved || m.state == MarketState.Invalid) {
+            return;
+        }
+
+        m.state = MarketState.Resolving;
+        uint8 attempt = m.attempts + 1;
+        m.attempts = attempt;
+
+        address executor = _pickExecutor(marketId, executionIndex);
+        emit ResolutionAttempted(marketId, attempt, executor);
+
+        if (executor == address(0)) {
+            _fail(m, marketId, attempt, "no executor available");
+            return;
+        }
+
+        (bool ok, uint256 observed, string memory reason) = _readOracle(
+            m,
+            executor
+        );
+        if (!ok) {
+            _fail(m, marketId, attempt, reason);
+            return;
+        }
+
+        m.observedValue = observed;
+        Outcome outcome = _compare(observed, m.target, m.comparator)
+            ? Outcome.Yes
+            : Outcome.No;
+        m.outcome = outcome;
+        uint256 winningPool = outcome == Outcome.Yes ? m.totalYes : m.totalNo;
+
+        if (winningPool == 0) {
+            // Pari-mutuel has no denominator when nobody backed the winning side.
+            _invalidate(m, marketId, "no stake on winning side");
+            _cancelRemaining(m, attempt);
+            return;
+        }
+
+        m.state = MarketState.Resolved;
+        emit MarketResolved(marketId, outcome, observed);
+        _cancelRemaining(m, attempt);
     }
 
     /// A failed oracle read is never interpreted as NO. Once the booked attempts are
@@ -308,6 +353,15 @@ contract RitualPredict {
         m.state = MarketState.Invalid;
         m.invalidReason = reason;
         emit MarketInvalidated(marketId, reason);
+    }
+
+    /// Once a market reaches a terminal state early, stop the Scheduler from firing the
+    /// remaining booked attempts. Never lets a cancel() revert take the callback down
+    /// with it.
+    function _cancelRemaining(Market storage m, uint8 attempt) private {
+        if (attempt < MAX_ATTEMPTS) {
+            try IScheduler(RitualChain.SCHEDULER).cancel(m.scheduleId) {} catch {}
+        }
     }
 
     // ────────────────────────────── Payouts ──────────────────────────────
