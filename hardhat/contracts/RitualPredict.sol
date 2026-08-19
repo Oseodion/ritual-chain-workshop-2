@@ -425,7 +425,42 @@ contract RitualPredict {
         Market storage m,
         address executor
     ) private returns (bool ok, uint256 value, string memory reason) {
-        // we'll fill this up
+        bytes memory input = abi.encode(
+            executor,
+            new bytes[](0), // encryptedSecrets
+            HTTP_TTL_BLOCKS,
+            new bytes[](0), // secretSignatures
+            bytes(""), // userPublicKey (empty = plaintext)
+            m.oracleUrl,
+            RitualChain.HTTP_GET,
+            new string[](0), // header keys
+            new string[](0), // header values
+            bytes(""), // body
+            uint256(0), // dkmsKeyIndex
+            uint8(0), // dkmsKeyFormat
+            false // piiEnabled
+        );
+
+        (bool called, bytes memory raw) = RitualChain.HTTP_PRECOMPILE.call(
+            input
+        );
+        if (!called) return (false, 0, "http precompile call failed");
+
+        try this.decodeHttpResponse(raw) returns (
+            uint16 status,
+            bytes memory body,
+            string memory errorMessage
+        ) {
+            if (bytes(errorMessage).length > 0) return (false, 0, errorMessage);
+            if (status != 200) return (false, 0, "non-200 http status");
+
+            (bool jqOk, uint256 observed) = _jqUint(m.jsonPath, string(body));
+            if (!jqOk) return (false, 0, "jq extraction failed");
+
+            return (true, observed, "");
+        } catch {
+            return (false, 0, "malformed http response");
+        }
     }
 
     /**
