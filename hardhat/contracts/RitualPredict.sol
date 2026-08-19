@@ -477,7 +477,23 @@ contract RitualPredict {
         uint256 marketId,
         uint64 resolveBlock
     ) private returns (uint256 callId) {
-        // we'll fill this up
+        bytes memory data = abi.encodeCall(
+            this.onScheduledResolve,
+            (0, marketId)
+        );
+
+        callId = IScheduler(RitualChain.SCHEDULER).schedule(
+            data,
+            RESOLVE_GAS_LIMIT,
+            uint32(resolveBlock),
+            MAX_ATTEMPTS,
+            RETRY_INTERVAL_BLOCKS,
+            SCHEDULER_TTL_BLOCKS,
+            MIN_MAX_FEE_PER_GAS,
+            MIN_MAX_FEE_PER_GAS,
+            0,
+            address(this)
+        );
     }
 
     // ────────────────────────────── Helpers ──────────────────────────────
