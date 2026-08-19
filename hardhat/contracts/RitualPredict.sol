@@ -468,7 +468,20 @@ contract RitualPredict {
         uint256 marketId,
         uint256 executionIndex
     ) private view returns (address) {
-        // we'll fill this up
+        uint256 seed = uint256(
+            keccak256(abi.encode(marketId, executionIndex, block.number))
+        );
+
+        (address executor, bool found) = ITEEServiceRegistry(
+            RitualChain.TEE_SERVICE_REGISTRY
+        ).pickServiceByCapability(
+                RitualChain.CAPABILITY_HTTP_CALL,
+                true,
+                seed,
+                EXECUTOR_PROBES
+            );
+
+        return found ? executor : address(0);
     }
 
     // ────────────────────── Ritual: scheduling ───────────────────────────
