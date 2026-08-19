@@ -35,6 +35,14 @@ export default defineConfig({
       type: "edr-simulated",
       chainType: "l1",
     },
+    // A persistent local node (`npx hardhat node`), as opposed to hardhatMainnet's
+    // throwaway in-process chain. Scripts and the frontend both target this so state
+    // (deployed contracts, markets, bets) survives between commands.
+    localhost: {
+      type: "http",
+      chainType: "l1",
+      url: "http://127.0.0.1:8545",
+    },
     // Ritual Chain testnet. Requires EIP-1559 (type-2) transactions; viem sends
     // those by default.
     ritual: {
